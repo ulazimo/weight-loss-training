@@ -1,550 +1,258 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Training Log</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;600&display=swap" rel="stylesheet">
-
 <style>
   :root {
-    --pine:      #101B15;
-    --platform:  #18271E;
-    --raised:    #1F3227;
-    --edge:      #2C4736;
-    --bone:      #EEEBE1;
-    --chalk:     #8DA695;
-    --signal:    #E3B505;
-    --rust:      #C2603F;
-
-    --display: "Barlow Condensed", "Oswald", "Arial Narrow", sans-serif;
-    --body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --bg:      #ffffff;
+    --panel:   #f6f7f9;
+    --line:    #e3e5e9;
+    --line-2:  #cdd1d8;
+    --text:    #16181d;
+    --muted:   #6a707a;
+    --accent:  #2563eb;
+    --accent-bg: #eaf0fe;
+    --warn:    #c0392b;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
   html { -webkit-text-size-adjust: 100%; }
-
   button, .demo, input { touch-action: manipulation; }
 
-  /* ---------- masthead ---------- */
-  .masthead {
-    padding: 22px 0 14px;
-    border-bottom: 1px solid var(--edge);
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.5;
+    padding-bottom: 84px;
   }
-  .eyebrow {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--chalk);
+  .wrap { max-width: 430px; margin: 0 auto; padding: 0 14px; }
+
+  /* ---------- header ---------- */
+  .masthead { padding: 18px 0 0; }
+  .eyebrow { font-size: 12px; color: var(--muted); }
+  .masthead h1 { font-size: 24px; font-weight: 650; letter-spacing: -0.02em; margin: 2px 0 0; }
+  .masthead .meta { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+
+  .tabs { display: flex; gap: 6px; margin-top: 14px; }
+  .tabs button {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 13.5px;
+    font-weight: 500;
+    padding: 9px 4px;
+    cursor: pointer;
   }
-  .masthead h1 {
-    font-family: var(--display);
-    font-weight: 700;
-    font-size: 40px;
-    line-height: 0.95;
-    letter-spacing: 0.01em;
-    text-transform: uppercase;
-    margin: 4px 0 0;
-  }
-  .masthead .meta {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--chalk);
-    margin-top: 6px;
+  .tabs button[aria-pressed="true"] {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
   }
 
   /* ---------- day switch ---------- */
-  .dayswitch { display: flex; gap: 8px; margin: 16px 0 4px; }
+  .dayswitch {
+    display: flex;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 12;
+    background: var(--bg);
+    margin: 0 -14px;
+    padding: 12px 14px 11px;
+    border-bottom: 1px solid var(--line);
+  }
   .dayswitch button {
     flex: 1;
-    background: transparent;
-    border: 1px solid var(--edge);
-    color: var(--chalk);
-    font-family: var(--display);
-    font-size: 19px;
+    background: var(--bg);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 15px;
     font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    padding: 11px 8px 9px;
+    padding: 9px 6px;
     cursor: pointer;
-    transition: background .15s, color .15s, border-color .15s;
+    min-height: 48px;
   }
-  .dayswitch button .sub {
-    display: block;
-    font-family: var(--mono);
-    font-size: 9px;
-    font-weight: 400;
-    letter-spacing: 0.12em;
-    opacity: .65;
-    margin-top: 2px;
-  }
+  .dayswitch button .sub { display: block; font-size: 11px; font-weight: 400; margin-top: 1px; }
   .dayswitch button[aria-pressed="true"] {
-    background: var(--raised);
-    border-color: var(--chalk);
-    color: var(--bone);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
   }
-  .nextup {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--signal);
-    margin: 8px 0 0;
-  }
+  .nextup { font-size: 13px; color: var(--muted); margin: 12px 0 0; }
 
   /* ---------- exercise card ---------- */
   .card {
-    background: var(--platform);
-    border: 1px solid var(--edge);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
     margin-top: 12px;
-  }
-  .card.done { border-color: var(--signal); }
-
-  .card-head {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 13px 14px 10px;
-  }
-  .slot {
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--signal);
-    letter-spacing: .06em;
-    flex: none;
-    width: 26px;
-  }
-  .card-head .name {
-    font-family: var(--display);
-    font-size: 23px;
-    font-weight: 600;
-    line-height: 1.05;
-    text-transform: uppercase;
-    letter-spacing: .015em;
-    flex: 1;
-  }
-  .target {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--chalk);
-    flex: none;
-    white-space: nowrap;
-  }
-
-  .card-sub {
-    padding: 0 14px 12px 50px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 14px;
-    align-items: center;
-  }
-  .note { font-size: 12.5px; color: var(--chalk); flex: 1 1 100%; }
-  .minilink {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: var(--chalk);
-    text-decoration: none;
-    border-bottom: 1px solid var(--edge);
-    padding-bottom: 1px;
-    background: none;
-    border-left: 0; border-right: 0; border-top: 0;
-    cursor: pointer;
-  }
-  .minilink:hover, .minilink:focus-visible { color: var(--bone); border-color: var(--chalk); }
-
-  .lastline {
-    font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--chalk);
-    padding: 0 14px 10px 50px;
-  }
-  .lastline b { color: var(--bone); font-weight: 500; }
-
-  /* ---------- entry grid ---------- */
-  .entry {
-    display: grid;
-    grid-template-columns: 74px 1fr;
-    gap: 10px;
-    padding: 0 14px 12px;
-    align-items: start;
-  }
-  .fieldlabel {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    color: var(--chalk);
-    display: block;
-    margin-bottom: 4px;
-  }
-  .setrow { display: flex; gap: 8px; }
-  .setrow > div { flex: 1; }
-
-  input[type="number"], input[type="text"] {
-    width: 100%;
-    background: var(--pine);
-    border: 1px solid var(--edge);
-    color: var(--bone);
-    font-family: var(--mono);
-    font-size: 17px;
-    font-weight: 500;
-    text-align: center;
-    padding: 10px 2px;
-    border-radius: 0;
-    -moz-appearance: textfield;
-  }
-  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
-    -webkit-appearance: none; margin: 0;
-  }
-  input:focus { outline: 2px solid var(--signal); outline-offset: -2px; border-color: var(--signal); }
-  input::placeholder { color: #4C6653; }
-
-  /* ---------- the ladder ---------- */
-  .ladder {
-    display: flex;
-    align-items: flex-end;
-    gap: 3px;
-    height: 26px;
-    padding: 0 14px;
-  }
-  .rung {
-    width: 15px;
-    height: 100%;
-    background: var(--pine);
-    border: 1px solid var(--edge);
-    position: relative;
     overflow: hidden;
   }
-  .rung i {
-    position: absolute;
-    left: 0; right: 0; bottom: 0;
-    background: var(--chalk);
-    display: block;
-    transition: height .25s ease;
-  }
-  .rung.top i { background: var(--signal); }
-  .verdict {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: .04em;
-    margin-left: 8px;
-    align-self: center;
-    color: var(--chalk);
-  }
-  .verdict.up { color: var(--signal); font-weight: 600; }
-  .verdict.down { color: var(--rust); }
-  .card .ladder { padding-bottom: 14px; height: 40px; }
+  .card.done { border-color: var(--accent); }
 
-  /* ---------- actions ---------- */
-  .finish {
-    width: 100%;
-    margin: 20px 0 8px;
-    background: var(--signal);
-    color: var(--pine);
-    border: none;
-    font-family: var(--display);
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    padding: 15px;
-    cursor: pointer;
-  }
-  .finish:disabled { background: var(--raised); color: var(--chalk); cursor: not-allowed; }
-  .ghost {
-    width: 100%;
-    background: transparent;
-    border: 1px solid var(--edge);
-    color: var(--chalk);
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    padding: 11px;
-    cursor: pointer;
-    margin-bottom: 24px;
-  }
-  .ghost:hover { color: var(--bone); border-color: var(--chalk); }
+  .card-head { display: flex; align-items: baseline; gap: 8px; padding: 12px 13px 6px; }
+  .slot { font-size: 12px; font-weight: 600; color: var(--muted); flex: none; width: 22px; }
+  .card-head .name { font-size: 17px; font-weight: 600; line-height: 1.2; margin: 0; flex: 1; letter-spacing: -0.01em; }
+  .target { font-size: 13px; color: var(--muted); flex: none; white-space: nowrap; }
 
-  /* ---------- rest timer ---------- */
-  .timerbar {
-    position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 430px;
-    bottom: 0;
-    border-left: 1px solid var(--edge);
-    border-right: 1px solid var(--edge);
-    background: var(--platform);
-    border-top: 1px solid var(--edge);
-    display: flex;
-    gap: 1px;
-    z-index: 20;
-  }
-  .timerbar button {
-    flex: 1;
-    background: var(--platform);
-    border: none;
-    color: var(--chalk);
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    padding: 14px 4px calc(14px + env(safe-area-inset-bottom));
-    cursor: pointer;
-  }
-  .timerbar button:hover { color: var(--bone); }
-  .timerbar .clock {
-    flex: 1.2;
-    font-family: var(--mono);
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--bone);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding-bottom: env(safe-area-inset-bottom);
-    font-variant-numeric: tabular-nums;
-  }
-  .timerbar .clock.ring { color: var(--signal); }
-
-  /* ---------- tabs ---------- */
-  .tabs { display: flex; gap: 18px; margin-top: 14px; }
-  .tabs button {
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--chalk);
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    padding: 0 0 6px;
-    cursor: pointer;
-  }
-  .tabs button[aria-pressed="true"] { color: var(--bone); border-color: var(--signal); }
-
-  /* ---------- history & weight ---------- */
-  .logrow {
-    border-bottom: 1px solid var(--edge);
-    padding: 13px 0;
-  }
-  .logrow .top {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    font-family: var(--display);
-    font-size: 20px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-  .logrow .top span { font-family: var(--mono); font-size: 11px; font-weight: 400; color: var(--chalk); text-transform: none; }
-  .logrow .detail {
-    font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--chalk);
-    margin-top: 5px;
-    white-space: pre-line;
-  }
-  .empty {
-    color: var(--chalk);
-    font-size: 13.5px;
-    padding: 28px 0;
-    text-align: center;
-    border: 1px dashed var(--edge);
-    margin-top: 14px;
-  }
-
-  .bwbar { height: 5px; background: var(--raised); margin: 12px 0 6px; }
-  .bwbar i { display: block; height: 100%; background: var(--signal); }
-  .bwstat {
-    font-family: var(--display);
-    font-size: 46px;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: .01em;
-  }
-  .bwstat small { font-family: var(--mono); font-size: 13px; font-weight: 400; color: var(--chalk); letter-spacing: 0; }
-  .bwform { display: flex; gap: 8px; margin: 14px 0 20px; }
-  .bwform input { flex: 1; }
-  .bwform button {
-    background: var(--raised);
-    border: 1px solid var(--edge);
-    color: var(--bone);
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    padding: 0 18px;
-    cursor: pointer;
-  }
-  .spark { display: flex; align-items: flex-end; gap: 2px; height: 44px; margin-bottom: 20px; }
-  .spark i { flex: 1; background: var(--edge); min-width: 2px; }
-  .spark i:last-child { background: var(--signal); }
-
-  .sectiontitle {
-    font-family: var(--display);
-    font-size: 26px;
-    font-weight: 600;
-    text-transform: uppercase;
-    margin: 20px 0 0;
-    letter-spacing: .02em;
-  }
-  .hint { color: var(--chalk); font-size: 12.5px; margin: 4px 0 0; }
-  .storagewarn {
-    border: 1px solid var(--rust);
-    color: var(--rust);
-    font-family: var(--mono);
-    font-size: 11px;
-    padding: 9px 11px;
-    margin-top: 14px;
-  }
-  /* ---------- exercise demo ---------- */
   .demo {
-    position: relative;
-    display: block;
-    width: 100%;
-    height: 158px;
-    background: var(--raised);
-    border: 0;
-    border-top: 1px solid var(--edge);
-    border-bottom: 1px solid var(--edge);
-    padding: 0;
-    overflow: hidden;
-    cursor: zoom-in;
+    position: relative; display: block; width: 100%; height: 140px;
+    background: var(--panel); border: 0;
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    padding: 0; overflow: hidden; cursor: zoom-in; margin-top: 8px;
   }
   .demo img { width: 100%; height: 100%; object-fit: contain; display: block; }
   .demo .phase {
-    position: absolute; left: 8px; bottom: 7px;
-    font-family: var(--mono); font-size: 9px; letter-spacing: .14em;
-    color: var(--pine); background: var(--signal); padding: 2px 6px;
+    position: absolute; left: 8px; bottom: 7px; font-size: 11px; font-weight: 500;
+    color: #fff; background: rgba(22,24,29,.72); padding: 2px 7px; border-radius: 4px;
   }
-  .demo .zoom {
-    position: absolute; right: 8px; bottom: 7px;
-    font-family: var(--mono); font-size: 9px; letter-spacing: .14em;
-    color: var(--chalk); text-transform: uppercase;
+  .demo .zoom { position: absolute; right: 8px; bottom: 7px; font-size: 11px; color: var(--muted); }
+  .demo:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .card-sub { padding: 10px 13px 0; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+  .note { font-size: 13px; color: var(--muted); flex: 1 1 100%; margin: 0; }
+  .minilink {
+    font-size: 13px; color: var(--accent); text-decoration: none;
+    background: none; border: 0; padding: 4px 0; cursor: pointer; font-family: var(--font);
   }
-  .demo:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+  .minilink:hover { text-decoration: underline; }
+
+  .lastline { font-size: 13px; color: var(--muted); padding: 8px 13px 0; margin: 0; }
+  .lastline b { color: var(--text); font-weight: 600; }
+
+  /* ---------- entry ---------- */
+  .entry { display: grid; grid-template-columns: 76px 1fr; gap: 10px; padding: 10px 13px 12px; }
+  .fieldlabel { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .setrow { display: flex; gap: 7px; }
+  .setrow > div { flex: 1; }
+
+  input[type="number"], input[type="text"] {
+    width: 100%; background: var(--bg);
+    border: 1px solid var(--line-2); border-radius: 8px;
+    color: var(--text); font-family: var(--font);
+    font-size: 16px; font-weight: 500; text-align: center;
+    padding: 11px 2px; -moz-appearance: textfield;
+  }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+  input:disabled { background: var(--panel); color: var(--muted); }
+  input::placeholder { color: #a6acb6; font-weight: 400; }
+
+  /* ---------- progress rungs ---------- */
+  .ladder { display: flex; align-items: center; gap: 4px; padding: 0 13px 12px; }
+  .rung { width: 26px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; position: relative; }
+  .rung i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--line-2); display: block; transition: width .25s ease; }
+  .rung.top i { background: var(--accent); }
+  .verdict { font-size: 12.5px; color: var(--muted); margin-left: 6px; }
+  .verdict.up { color: var(--accent); font-weight: 600; }
+  .verdict.down { color: var(--warn); }
+
+  /* ---------- actions ---------- */
+  .finish {
+    width: 100%; margin: 18px 0 8px;
+    background: var(--accent); color: #fff; border: 0; border-radius: 10px;
+    font-family: var(--font); font-size: 16px; font-weight: 600;
+    padding: 15px; cursor: pointer;
+  }
+  .finish:disabled { background: var(--panel); color: var(--muted); cursor: not-allowed; }
+  .ghost {
+    width: 100%; background: var(--bg); border: 1px solid var(--line-2); border-radius: 10px;
+    color: var(--muted); font-family: var(--font); font-size: 14px;
+    padding: 12px; cursor: pointer; margin-bottom: 24px;
+  }
+  .ghost:hover { color: var(--text); }
+
+  .storagewarn {
+    border: 1px solid #f0c4bd; background: #fdf1ef; color: var(--warn);
+    font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-top: 12px;
+  }
+
+  /* ---------- rest timer ---------- */
+  .timerbar {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: 0;
+    width: 100%; max-width: 430px;
+    background: var(--bg); border-top: 1px solid var(--line);
+    display: flex; gap: 6px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    z-index: 20;
+  }
+  .timerbar button {
+    flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--text); font-family: var(--font); font-size: 13px; font-weight: 500;
+    padding: 11px 2px; cursor: pointer;
+  }
+  .timerbar button:active { background: var(--accent-bg); }
+  .timerbar .clock {
+    flex: 1.1; font-size: 18px; font-weight: 600; color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .timerbar .clock.ring { color: var(--accent); font-size: 14px; }
+
+  /* ---------- history & bodyweight ---------- */
+  .sectiontitle { font-size: 19px; font-weight: 650; margin: 20px 0 0; letter-spacing: -0.01em; }
+  .hint { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+  .logrow { border-bottom: 1px solid var(--line); padding: 12px 0; }
+  .logrow .top { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; font-weight: 600; }
+  .logrow .top span { font-size: 12.5px; font-weight: 400; color: var(--muted); }
+  .logrow .detail { font-size: 13px; color: var(--muted); margin-top: 5px; white-space: pre-line; }
+  .empty {
+    color: var(--muted); font-size: 13.5px; padding: 26px 0; text-align: center;
+    border: 1px dashed var(--line-2); border-radius: 10px; margin-top: 14px;
+  }
+
+  .bwstat { font-size: 34px; font-weight: 650; line-height: 1.1; letter-spacing: -0.02em; }
+  .bwstat small { font-size: 13px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+  .bwbar { height: 6px; background: var(--line); border-radius: 3px; margin: 10px 0 6px; overflow: hidden; }
+  .bwbar i { display: block; height: 100%; background: var(--accent); }
+  .bwform { display: flex; gap: 8px; margin: 14px 0 18px; }
+  .bwform input { flex: 1; }
+  .bwform button {
+    background: var(--accent); border: 0; border-radius: 8px; color: #fff;
+    font-family: var(--font); font-size: 14px; font-weight: 600; padding: 0 20px; cursor: pointer;
+  }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 44px; margin-bottom: 18px; }
+  .spark i { flex: 1; background: var(--line); min-width: 2px; border-radius: 2px 2px 0 0; }
+  .spark i:last-child { background: var(--accent); }
 
   /* ---------- lightbox ---------- */
   .lb {
-    position: fixed; inset: 0; z-index: 50;
-    overscroll-behavior: contain;
-    background: rgba(9, 16, 12, .97);
-    overflow-y: auto;
-    padding: 18px 16px calc(30px + env(safe-area-inset-bottom));
+    position: fixed; inset: 0; z-index: 50; background: var(--bg);
+    overflow-y: auto; overscroll-behavior: contain;
+    padding: 16px 14px calc(26px + env(safe-area-inset-bottom));
   }
   .lb-inner { max-width: 430px; margin: 0 auto; }
   .lb-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
-  .lb-head h3 {
-    font-family: var(--display); font-size: 30px; font-weight: 700;
-    text-transform: uppercase; line-height: 1; margin: 0; flex: 1;
-  }
-  .lb-head .muscle {
-    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
-    text-transform: uppercase; color: var(--signal); display: block; margin-top: 5px;
-  }
+  .lb-head h3 { font-size: 20px; font-weight: 650; line-height: 1.2; margin: 0; flex: 1; }
+  .lb-head .muscle { font-size: 13px; color: var(--muted); display: block; margin-top: 3px; }
   .lb-close {
-    flex: none; background: none; border: 1px solid var(--edge); color: var(--chalk);
-    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
-    padding: 7px 12px; cursor: pointer; text-transform: uppercase;
+    flex: none; background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px;
+    color: var(--text); font-family: var(--font); font-size: 13.5px; padding: 9px 14px; cursor: pointer;
   }
-  .lb-close:hover { color: var(--bone); border-color: var(--chalk); }
   .frames { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .frames figure { margin: 0; background: var(--raised); border: 1px solid var(--edge); }
+  .frames figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .frames img { width: 100%; display: block; }
-  .frames figcaption {
-    font-family: var(--mono); font-size: 9px; letter-spacing: .14em;
-    text-transform: uppercase; color: var(--chalk); padding: 6px 8px;
-    border-top: 1px solid var(--edge);
-  }
-  .lb ol { padding-left: 20px; margin: 18px 0 0; }
-  .lb li { font-size: 13.5px; color: #C9D5CC; margin-bottom: 9px; line-height: 1.55; }
-  .lb .yt { display: inline-block; margin-top: 16px; }
+  .frames figcaption { font-size: 12px; color: var(--muted); padding: 6px 8px; border-top: 1px solid var(--line); }
+  .lb ol { padding-left: 20px; margin: 16px 0 0; }
+  .lb li { font-size: 14px; color: var(--text); margin-bottom: 10px; line-height: 1.55; }
+  .lb .yt { display: inline-block; margin-top: 14px; }
 
   [hidden] { display: none !important; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
-  /* ============ PHONE LAYOUT — applied at every width ============ */
-  body { font-size: 14.5px; padding-bottom: 84px; }
-
-  .masthead { padding: 16px 0 11px; }
-  .masthead h1 { font-size: 32px; }
-  .masthead .meta { font-size: 10.5px; }
-  .tabs { gap: 14px; margin-top: 12px; }
-  .tabs button { padding-bottom: 9px; font-size: 10.5px; }
-
-  /* day switch follows you down the page */
-  .dayswitch {
-    position: sticky; top: 0; z-index: 12;
-    background: var(--pine);
-    margin: 0 -12px 0;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--edge);
-    gap: 6px;
-  }
-  .dayswitch button { font-size: 17px; padding: 9px 6px 8px; min-height: 46px; }
-  .dayswitch button .sub { font-size: 8.5px; }
-  .nextup { font-size: 10.5px; line-height: 1.45; margin-top: 10px; }
-
-  /* cards go edge to edge — more room for the numbers */
-  .card { margin-left: -12px; margin-right: -12px; border-left: 0; border-right: 0; }
-  .card-head { padding: 11px 12px 8px; gap: 8px; }
-  .card-head .name { font-size: 20px; }
-  .target { font-size: 11px; }
-  .slot { width: 22px; font-size: 10px; }
-
-  /* drop the deep indent — the phone has no width to spare */
-  .card-sub { padding: 0 12px 10px; gap: 6px 12px; }
-  .lastline { padding: 0 12px 9px; font-size: 11px; line-height: 1.45; }
-  .note { font-size: 12px; }
-  .minilink { font-size: 9.5px; padding: 4px 0; }
-
-  .demo { height: 132px; }
-  .demo .phase, .demo .zoom { font-size: 8.5px; bottom: 6px; }
-
-  .entry { grid-template-columns: 66px 1fr; gap: 8px; padding: 0 12px 11px; }
-  .setrow { gap: 6px; }
-  input[type="number"], input[type="text"] { font-size: 16px; padding: 12px 2px; }
-  .fieldlabel { font-size: 8.5px; }
-
-  .ladder { padding: 0 12px; }
-  .card .ladder { padding-bottom: 12px; }
-  .rung { width: 13px; }
-  .verdict { font-size: 10px; margin-left: 7px; }
-
-
-  .finish { font-size: 19px; padding: 16px; margin-top: 16px; }
-
-  .timerbar button { font-size: 10px; letter-spacing: .06em; padding: 15px 2px calc(15px + env(safe-area-inset-bottom)); }
-  .timerbar .clock { font-size: 18px; }
-
-  .lb { padding: 14px 12px calc(28px + env(safe-area-inset-bottom)); }
-  .lb-head h3 { font-size: 25px; }
-  .frames { gap: 6px; }
-  .lb li { font-size: 13px; }
-
-  .bwstat { font-size: 38px; }
-  .sectiontitle { font-size: 23px; }
-  .logrow .top { font-size: 18px; }
-  
-
   @media (min-width: 560px) {
-    body { background: #0A120D; }
-    .wrap {
-      background: var(--pine);
-      border-left: 1px solid var(--edge);
-      border-right: 1px solid var(--edge);
-      min-height: 100vh;
-      padding-bottom: 24px;
-    }
-    .dayswitch { background: var(--pine); }
+    body { background: #eef0f3; }
+    .wrap { background: var(--bg); border-left: 1px solid var(--line); border-right: 1px solid var(--line); min-height: 100vh; padding-bottom: 20px; }
+    .dayswitch { background: var(--bg); }
   }
-
   @media (max-width: 340px) {
     .frames { grid-template-columns: 1fr; }
     .entry { grid-template-columns: 1fr; }
@@ -799,7 +507,7 @@ function renderTrain() {
          data-rep="${i}" placeholder="${l.lo}–${l.hi}" aria-label="Set ${i+1} reps"></div>`).join("");
 
     const rungs = Array.from({length: l.sets}, () =>
-      `<div class="rung"><i style="height:0"></i></div>`).join("");
+      `<div class="rung"><i style="width:0"></i></div>`).join("");
 
     card.innerHTML = `
       <div class="card-head">
@@ -868,7 +576,7 @@ function updateCard(card) {
   card.querySelectorAll(".rung").forEach((rung, i) => {
     const r = reps[i] || 0;
     const pct = r <= 0 ? 0 : Math.max(12, Math.min(100, ((r - l.lo + 1) / (l.hi - l.lo + 1)) * 100));
-    rung.querySelector("i").style.height = pct + "%";
+    rung.querySelector("i").style.width = pct + "%";
     rung.classList.toggle("top", r >= l.hi);
   });
   const v = verdictFor(l, weight, reps);
@@ -1022,7 +730,7 @@ function tick() {
   const c = $("clock");
   if (remain <= 0) {
     clearInterval(timerId); timerId = null;
-    c.textContent = "REST UP"; c.classList.add("ring");
+    c.textContent = "Rest done"; c.classList.add("ring");
     return;
   }
   c.textContent = `${Math.floor(remain/60)}:${String(remain%60).padStart(2,"0")}`;
