@@ -152,7 +152,13 @@
   .rung { width: 26px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; position: relative; }
   .rung i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--line-2); display: block; transition: width .25s ease; }
   .rung.top i { background: var(--accent); }
-  .verdict { font-size: 12.5px; color: var(--muted); margin-left: 6px; }
+  .verdict { font-size: 12.5px; color: var(--muted); margin-left: 6px; flex: 1; }
+  .restbtn {
+    flex: none; background: var(--panel); border: 1px solid var(--line-2); border-radius: 999px;
+    color: var(--text); font-family: var(--font); font-size: 12.5px; font-weight: 500;
+    padding: 6px 12px; cursor: pointer; white-space: nowrap;
+  }
+  .restbtn:active, .restbtn.running { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
   .verdict.up { color: var(--accent); font-weight: 600; }
   .verdict.down { color: var(--warn); }
 
@@ -201,7 +207,13 @@
   .sectiontitle { font-size: 19px; font-weight: 650; margin: 20px 0 0; letter-spacing: -0.01em; }
   .hint { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
   .logrow { border-bottom: 1px solid var(--line); padding: 12px 0; }
-  .logrow .top { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; font-weight: 600; }
+  .logrow .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 15px; font-weight: 600; }
+  .rowdel {
+    flex: none; background: none; border: 0; color: var(--muted); font-family: var(--font);
+    font-size: 12.5px; padding: 4px 2px 4px 8px; cursor: pointer;
+  }
+  .rowdel:hover { color: var(--warn); text-decoration: underline; }
+  .dangerghost { color: var(--warn); border-color: #f0c4bd; }
   .logrow .top span { font-size: 12.5px; font-weight: 400; color: var(--muted); }
   .logrow .detail { font-size: 13px; color: var(--muted); margin-top: 5px; white-space: pre-line; }
   .empty {
@@ -290,6 +302,7 @@
     <p class="hint">Newest first. Weight × reps per set.</p>
     <div id="historylist"></div>
     <button class="ghost" id="export" style="margin-top:18px">Export a backup file</button>
+    <button class="ghost dangerghost" id="clearall">Clear all history</button>
   </section>
 
   <!-- WEIGHT -->
@@ -539,13 +552,20 @@ function renderTrain() {
           <div class="setrow">${setInputs}</div>
         </div>
       </div>
-      <div class="ladder">${rungs}<span class="verdict"></span></div>
+      <div class="ladder">${rungs}<span class="verdict"></span>
+        <button class="restbtn" data-rest-lift="${l.rest}">Rest ${fmtRest(l.rest)}</button>
+      </div>
     `;
     host.appendChild(card);
   });
 
   host.querySelectorAll("input").forEach(inp => inp.addEventListener("input", onEntryChange));
   host.querySelectorAll(".demo").forEach(d => d.addEventListener("click", () => openLightbox(d.dataset.ex, d.dataset.name)));
+  host.querySelectorAll("[data-rest-lift]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".restbtn").forEach(x => x.classList.remove("running"));
+    b.classList.add("running");
+    startTimer(parseInt(b.dataset.restLift));
+  }));
   startLoops();
   host.querySelectorAll("[data-swap]").forEach(b => b.addEventListener("click", () => {
     DB.alts[b.dataset.swap] = !DB.alts[b.dataset.swap];
@@ -616,18 +636,37 @@ async function finishSession() {
    ============================================================ */
 function renderHistory() {
   const host = $("historylist");
+  $("export").hidden = !DB.sessions.length;
+  $("clearall").hidden = !DB.sessions.length;
   if (!DB.sessions.length) {
     host.innerHTML = '<p class="empty">Nothing logged yet. Finish a session and it lands here.</p>';
     return;
   }
-  host.innerHTML = DB.sessions.slice().reverse().map(s => {
+  host.innerHTML = DB.sessions.map((s, idx) => ({ s, idx })).reverse().map(({ s, idx }) => {
     const lines = Object.values(s.entries).map(e =>
       `${e.name} — ${e.weight ? e.weight + " kg" : "bw"} × ${e.reps.filter(r=>r>0).join(" / ")}`).join("\n");
     return `<div class="logrow">
-      <div class="top">${PROGRAM[s.day].label}<span>${fmtDate(s.date)}</span></div>
+      <div class="top">${PROGRAM[s.day].label}
+        <span>${fmtDate(s.date)}</span>
+        <button class="rowdel" data-del="${idx}">Delete</button>
+      </div>
       <div class="detail">${lines}</div>
     </div>`;
   }).join("");
+  host.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", async () => {
+    const s = DB.sessions[b.dataset.del];
+    if (!confirm(`Delete the ${PROGRAM[s.day].label} logged on ${fmtDate(s.date)}? This can't be undone.`)) return;
+    DB.sessions.splice(b.dataset.del, 1);
+    await saveDB();
+    renderHistory(); renderMeta(); renderTrain();
+  }));
+}
+
+async function clearAllHistory() {
+  if (!confirm(`Delete all ${DB.sessions.length} logged sessions? Bodyweight entries are kept. This can't be undone.`)) return;
+  DB.sessions = [];
+  await saveDB();
+  renderHistory(); renderMeta(); renderTrain();
 }
 
 /* ============================================================
@@ -657,12 +696,19 @@ function renderWeight() {
   $("bwspark").innerHTML = vals.map(v =>
     `<i style="height:${((v - min) / (max - min)) * 100}%"></i>`).join("");
 
-  $("bwlist").innerHTML = list.slice().reverse().slice(0, 20).map((e, i, arr) => {
-    const prev = arr[i + 1];
-    const d = prev ? e.kg - prev.kg : null;
+  const rows = list.map((e, idx) => ({ e, idx })).reverse().slice(0, 20);
+  $("bwlist").innerHTML = rows.map(({ e, idx }, i) => {
+    const prev = rows[i + 1];
+    const d = prev ? e.kg - prev.e.kg : null;
     return `<div class="logrow"><div class="top">${e.kg.toFixed(1)} kg
-      <span>${fmtDate(e.date)}${d !== null ? " · " + (d > 0 ? "+" : "") + d.toFixed(1) : ""}</span></div></div>`;
+      <span>${fmtDate(e.date)}${d !== null ? " · " + (d > 0 ? "+" : "") + d.toFixed(1) : ""}</span>
+      <button class="rowdel" data-delbw="${idx}">Delete</button></div></div>`;
   }).join("");
+  $("bwlist").querySelectorAll("[data-delbw]").forEach(b => b.addEventListener("click", async () => {
+    DB.bodyweight.splice(b.dataset.delbw, 1);
+    await saveDB();
+    renderWeight();
+  }));
 }
 
 /* ============================================================
@@ -725,24 +771,43 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeLightbo
    REST TIMER
    ============================================================ */
 let timerId = null, remain = 0;
-function tick() {
-  remain--;
+
+function fmtRest(s) { return s >= 60 ? `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}` : `${s}s`; }
+
+function paintClock() {
+  $("clock").textContent = `${Math.floor(remain/60)}:${String(remain%60).padStart(2,"0")}`;
+}
+
+function startTimer(seconds) {
+  clearInterval(timerId); timerId = null;
   const c = $("clock");
-  if (remain <= 0) {
-    clearInterval(timerId); timerId = null;
-    c.textContent = "Rest done"; c.classList.add("ring");
+  c.classList.remove("ring");
+  remain = seconds;
+  if (!remain) {
+    c.textContent = "0:00";
+    document.querySelectorAll(".restbtn").forEach(x => x.classList.remove("running"));
     return;
   }
-  c.textContent = `${Math.floor(remain/60)}:${String(remain%60).padStart(2,"0")}`;
+  paintClock();
+  timerId = setInterval(() => {
+    remain--;
+    if (remain <= 0) {
+      clearInterval(timerId); timerId = null;
+      c.textContent = "Rest done";
+      c.classList.add("ring");
+      document.querySelectorAll(".restbtn").forEach(x => x.classList.remove("running"));
+      if (navigator.vibrate) navigator.vibrate([180, 90, 180]);
+      return;
+    }
+    paintClock();
+  }, 1000);
 }
-document.querySelectorAll(".timerbar [data-rest]").forEach(b => b.addEventListener("click", () => {
-  clearInterval(timerId); timerId = null;
-  const c = $("clock"); c.classList.remove("ring");
-  remain = parseInt(b.dataset.rest);
-  if (!remain) { c.textContent = "–:––"; return; }
-  c.textContent = `${Math.floor(remain/60)}:${String(remain%60).padStart(2,"0")}`;
-  timerId = setInterval(tick, 1000);
-}));
+
+document.querySelectorAll(".timerbar [data-rest]").forEach(b =>
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".restbtn").forEach(x => x.classList.remove("running"));
+    startTimer(parseInt(b.dataset.rest));
+  }));
 
 /* ============================================================
    NAV + BOOT
@@ -766,6 +831,7 @@ $("clearform").onclick = () => {
   updateAll();
 };
 $("export").onclick = exportData;
+$("clearall").onclick = clearAllHistory;
 $("bwadd").onclick = async () => {
   const v = parseFloat($("bwinput").value);
   if (!v || v < 30 || v > 300) return;
