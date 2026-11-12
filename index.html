@@ -120,6 +120,12 @@
 
   .card-sub { padding: 10px 13px 0; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
   .note { font-size: 13px; color: var(--muted); flex: 1 1 100%; margin: 0; }
+  .note.imgnote { font-size: 12px; font-style: italic; }
+  .lb-imgnote { font-size: 13px; color: var(--warn); margin: 0 0 10px; }
+  .levelrow { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+  .levelrow:empty { display: none; }
+  .levelrow button { background: var(--panel); border: 1px solid var(--line-2); border-radius: 999px; font-family: var(--font); font-size: 12.5px; color: var(--muted); padding: 4px 11px; cursor: pointer; }
+  .levelrow button[aria-pressed="true"] { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .minilink {
     font-size: 13px; color: var(--accent); text-decoration: none;
     background: none; border: 0; padding: 4px 0; cursor: pointer; font-family: var(--font);
@@ -135,13 +141,14 @@
   .setrow { display: flex; gap: 7px; }
   .setrow > div { flex: 1; }
 
-  input[type="number"], input[type="text"] {
+  input[type="number"], input[type="text"], select {
     width: 100%; background: var(--bg);
     border: 1px solid var(--line-2); border-radius: 8px;
     color: var(--text); font-family: var(--font);
     font-size: 16px; font-weight: 500; text-align: center;
     padding: 11px 2px; -moz-appearance: textfield;
   }
+  select { -webkit-appearance: none; appearance: none; font-size: 14px; padding: 11px 4px; text-align-last: center; }
   input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
   input:disabled { background: var(--panel); color: var(--muted); }
@@ -292,9 +299,10 @@
   <section id="view-train">
     <div class="dayswitch">
       <button id="btn-A" aria-pressed="true">Day A<span class="sub">Squat &amp; press</span></button>
-      <button id="btn-B" aria-pressed="false">Day B<span class="sub">Hinge focus</span></button>
+      <button id="btn-B" aria-pressed="false">Day B<span class="sub">Hinge &amp; pull</span></button>
     </div>
     <p class="nextup" id="nextup"></p>
+    <div class="levelrow" id="levelrow"></div>
     <div id="storagewarn"></div>
     <p class="kneenote">Pain during a set stays at or under 3/10, and the knee must not feel worse the next morning than before you trained. Crepitus without added pain is not a reason to stop.</p>
     <div id="exercises"></div>
@@ -317,7 +325,7 @@
     <p class="hint">Goal 95 kg. Judge by the weekly trend, not any single morning.</p>
     <div id="bwsummary"></div>
     <div class="bwform">
-      <input type="number" id="bwinput" inputmode="decimal" step="0.1" placeholder="kg">
+      <input type="text" id="bwinput" inputmode="decimal" autocomplete="off" placeholder="kg">
       <button id="bwadd">Log</button>
     </div>
     <div class="spark" id="bwspark"></div>
@@ -328,8 +336,8 @@
 <div class="lb" id="lightbox" hidden><div class="lb-inner" id="lb-inner"></div></div>
 
 <div class="timerbar">
-  <button data-rest="60">60 s</button>
-  <button data-rest="90">90 s</button>
+  <button data-rest="45">45 s</button>
+  <button data-rest="75">75 s</button>
   <div class="clock" id="clock">–:––</div>
   <button data-rest="120">2 min</button>
   <button data-rest="0">Stop</button>
@@ -338,87 +346,103 @@
 <script>
 /* ============================================================
    PROGRAM DEFINITION
-   Exercise names + ids from github.com/yuhonas/free-exercise-db
+   Pictures from github.com/yuhonas/free-exercise-db ("img" = folder id).
+   Coaching steps ("tx") are the dataset's own where they suit worn knees;
+   the rest are rewritten to match the knee rules (depth, box height, range).
    ============================================================ */
 const REF = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/";
 
-/* Primary muscle + coaching steps, taken verbatim from the same dataset. */
-const EXDATA = {"Ball_Leg_Curl": {"m": ["hamstrings"], "s": ["Begin on the floor laying on your back with your feet on top of the ball.", "Position the ball so that when your legs are extended your ankles are on top of the ball. This will be your starting position.", "Raise your hips off of the ground, keeping your weight on the shoulder blades and your feet.", "Flex the knees, pulling the ball as close to you as you can, contracting the hamstrings.", "After a brief pause, return to the starting position."]}, "Barbell_Bench_Press_-_Medium_Grip": {"m": ["chest"], "s": ["Lie back on a flat bench. Using a medium width grip (a grip that creates a 90-degree angle in the middle of the movement between the forearms and the upper arms), lift the bar from the rack and hold it straight over you with your arms locked. This will be your starting position.", "From the starting position, breathe in and begin coming down slowly until the bar touches your middle chest.", "After a brief pause, push the bar back to the starting position as you breathe out. Focus on pushing the bar using your chest muscles. Lock your arms and squeeze your chest in the contracted position at the top of the motion, hold for a second and then start coming down slowly again. Tip: Ideally, lowering the weight should take about twice as long as raising it.", "Repeat the movement for the prescribed amount of repetitions.", "When you are done, place the bar back in the rack."]}, "Barbell_Hip_Thrust": {"m": ["glutes"], "s": ["Begin seated on the ground with a bench directly behind you. Have a loaded barbell over your legs. Using a fat bar or having a pad on the bar can greatly reduce the discomfort caused by this exercise.", "Roll the bar so that it is directly above your hips, and lean back against the bench so that your shoulder blades are near the top of it.", "Begin the movement by driving through your feet, extending your hips vertically through the bar. Your weight should be supported by your shoulder blades and your feet. Extend as far as possible, then reverse the motion to return to the starting position."]}, "Box_Squat": {"m": ["quadriceps"], "s": ["The box squat allows you to squat to desired depth and develop explosive strength in the squat movement. Begin in a power rack with a box at the appropriate height behind you. Typically, you would aim for a box height that brings you to a parallel squat, but you can train higher or lower if desired.", "Begin by stepping under the bar and placing it across the back of the shoulders. Squeeze your shoulder blades together and rotate your elbows forward, attempting to bend the bar across your shoulders. Remove the bar from the rack, creating a tight arch in your lower back, and step back into position. Place your feet wider for more emphasis on the back, glutes, adductors, and hamstrings, or closer together for more quad development. Keep your head facing forward.", "With your back, shoulders, and core tight, push your knees and butt out and you begin your descent. Sit back with your hips until you are seated on the box. Ideally, your shins should be perpendicular to the ground. Pause when you reach the box, and relax the hip flexors. Never bounce off of a box.", "Keeping the weight on your heels and pushing your feet and knees out, drive upward off of the box as you lead the movement with your head. Continue upward, maintaining tightness head to toe."]}, "Dumbbell_Bench_Press": {"m": ["chest"], "s": ["Lie down on a flat bench with a dumbbell in each hand resting on top of your thighs. The palms of your hands will be facing each other.", "Then, using your thighs to help raise the dumbbells up, lift the dumbbells one at a time so that you can hold them in front of you at shoulder width.", "Once at shoulder width, rotate your wrists forward so that the palms of your hands are facing away from you. The dumbbells should be just to the sides of your chest, with your upper arm and forearm creating a 90 degree angle. Be sure to maintain full control of the dumbbells at all times. This will be your starting position.", "Then, as you breathe out, use your chest to push the dumbbells up. Lock your arms at the top of the lift and squeeze your chest, hold for a second and then begin coming down slowly. Tip: Ideally, lowering the weight should take about twice as long as raising it.", "Repeat the movement for the prescribed amount of repetitions of your training program."]}, "Face_Pull": {"m": ["shoulders"], "s": ["Facing a high pulley with a rope or dual handles attached, pull the weight directly towards your face, separating your hands as you do so. Keep your upper arms parallel to the ground."]}, "Goblet_Squat": {"m": ["quadriceps"], "s": ["Stand holding a light kettlebell by the horns close to your chest. This will be your starting position.", "Squat down between your legs until your hamstrings are on your calves. Keep your chest and head up and your back straight.", "At the bottom position, pause and use your elbows to push your knees out. Return to the starting position, and repeat for 10-20 repetitions."]}, "Monster_Walk": {"m": ["abductors"], "s": ["Place a band around both ankles and another around both knees. There should be enough tension that they are tight when your feet are shoulder width apart.", "To begin, take short steps forward alternating your left and right foot.", "After several steps, do just the opposite and walk backward to where you started."]}, "Natural_Glute_Ham_Raise": {"m": ["hamstrings"], "s": ["Using the leg pad of a lat pulldown machine or a preacher bench, position yourself so that your ankles are under the pads, knees on the seat, and you are facing away from the machine. You should be upright and maintaining good posture.", "This will be your starting position. Lower yourself under control until your knees are almost completely straight.", "Remaining in control, raise yourself back up to the starting position.", "If you are unable to complete a rep, use a band, a partner, or push off of a box to aid in completing a repetition."]}, "Pullups": {"m": ["lats"], "s": ["Grab the pull-up bar with the palms facing forward using the prescribed grip. Note on grips: For a wide grip, your hands need to be spaced out at a distance wider than your shoulder width. For a medium grip, your hands need to be spaced out at a distance equal to your shoulder width and for a close grip at a distance smaller than your shoulder width.", "As you have both arms extended in front of you holding the bar at the chosen grip width, bring your torso back around 30 degrees or so while creating a curvature on your lower back and sticking your chest out. This is your starting position.", "Pull your torso up until the bar touches your upper chest by drawing the shoulders and the upper arms down and back. Exhale as you perform this portion of the movement. Tip: Concentrate on squeezing the back muscles once you reach the full contracted position. The upper torso should remain stationary as it moves through space and only the arms should move. The forearms should do no other work other than hold the bar.", "After a second on the contracted position, start to inhale and slowly lower your torso back to the starting position when your arms are fully extended and the lats are fully stretched.", "Repeat this motion for the prescribed amount of repetitions."]}, "Romanian_Deadlift": {"m": ["hamstrings"], "s": ["Put a barbell in front of you on the ground and grab it using a pronated (palms facing down) grip that a little wider than shoulder width. Tip: Depending on the weight used, you may need wrist wraps to perform the exercise and also a raised platform in order to allow for better range of motion.", "Bend the knees slightly and keep the shins vertical, hips back and back straight. This will be your starting position.", "Keeping your back and arms completely straight at all times, use your hips to lift the bar as you exhale. Tip: The movement should not be fast but steady and under control.", "Once you are standing completely straight up, lower the bar by pushing the hips back, only slightly bending the knees, unlike when squatting. Tip: Take a deep breath at the start of the movement and keep your chest up. Hold your breath as you lower and exhale as you complete the movement.", "Repeat for the recommended amount of repetitions."]}, "Seated_Cable_Rows": {"m": ["middle back"], "s": ["For this exercise you will need access to a low pulley row machine with a V-bar. Note: The V-bar will enable you to have a neutral grip where the palms of your hands face each other. To get into the starting position, first sit down on the machine and place your feet on the front platform or crossbar provided making sure that your knees are slightly bent and not locked.", "Lean over as you keep the natural alignment of your back and grab the V-bar handles.", "With your arms extended pull back until your torso is at a 90-degree angle from your legs. Your back should be slightly arched and your chest should be sticking out. You should be feeling a nice stretch on your lats as you hold the bar in front of you. This is the starting position of the exercise.", "Keeping the torso stationary, pull the handles back towards your torso while keeping the arms close to it until you touch the abdominals. Breathe out as you perform that movement. At that point you should be squeezing your back muscles hard. Hold that contraction for a second and slowly go back to the original position while breathing in.", "Repeat for the recommended amount of repetitions."]}, "Standing_Military_Press": {"m": ["shoulders"], "s": ["Start by placing a barbell that is about chest high on a squat rack. Once you have selected the weights, grab the barbell using a pronated (palms facing forward) grip. Make sure to grip the bar wider than shoulder width apart from each other.", "Slightly bend the knees and place the barbell on your collar bone. Lift the barbell up keeping it lying on your chest. Take a step back and position your feet shoulder width apart from each other.", "Once you pick up the barbell with the correct grip length, lift the bar up over your head by locking your arms. Hold at about shoulder level and slightly in front of your head. This is your starting position.", "Lower the bar down to the collarbone slowly as you inhale.", "Lift the bar back up to the starting position as you exhale.", "Repeat for the recommended amount of repetitions."]}, "Wide-Grip_Lat_Pulldown": {"m": ["lats"], "s": ["Sit down on a pull-down machine with a wide bar attached to the top pulley. Make sure that you adjust the knee pad of the machine to fit your height. These pads will prevent your body from being raised by the resistance attached to the bar.", "Grab the bar with the palms facing forward using the prescribed grip. Note on grips: For a wide grip, your hands need to be spaced out at a distance wider than shoulder width. For a medium grip, your hands need to be spaced out at a distance equal to your shoulder width and for a close grip at a distance smaller than your shoulder width.", "As you have both arms extended in front of you holding the bar at the chosen grip width, bring your torso back around 30 degrees or so while creating a curvature on your lower back and sticking your chest out. This is your starting position.", "As you breathe out, bring the bar down until it touches your upper chest by drawing the shoulders and the upper arms down and back. Tip: Concentrate on squeezing the back muscles once you reach the full contracted position. The upper torso should remain stationary and only the arms should move. The forearms should do no other work except for holding the bar; therefore do not try to pull down the bar using the forearms.", "After a second at the contracted position squeezing your shoulder blades together, slowly raise the bar back to the starting position when your arms are fully extended and the lats are fully stretched. Inhale during this portion of the movement.", "Repeat this motion for the prescribed amount of repetitions."]}, "Leg_Press": {"m": ["quadriceps"], "s": ["Using a leg press machine, sit down on the machine and place your legs on the platform directly in front of you at a medium (shoulder width) foot stance. (Note: For the purposes of this discussion we will use the medium stance described above which targets overall development; however you can choose any of the three stances described in the foot positioning section).", "Lower the safety bars holding the weighted platform in place and press the platform all the way up until your legs are fully extended in front of you. Tip: Make sure that you do not lock your knees. Your torso and the legs should make a perfect 90-degree angle. This will be your starting position.", "As you inhale, slowly lower the platform until your upper and lower legs make a 90-degree angle.", "Pushing mainly with the heels of your feet and using the quadriceps go back to the starting position as you exhale.", "Repeat for the recommended amount of repetitions and ensure to lock the safety pins properly once you are done. You do not want that platform falling on you fully loaded."]}, "Dumbbell_Step_Ups": {"m": ["quadriceps"], "s": ["Stand up straight while holding a dumbbell on each hand (palms facing the side of your legs).", "Place the right foot on the elevated platform. Step on the platform by extending the hip and the knee of your right leg. Use the heel mainly to lift the rest of your body up and place the foot of the left leg on the platform as well. Breathe out as you execute the force required to come up.", "Step down with the left leg by flexing the hip and knee of the right leg as you inhale. Return to the original standing position by placing the right foot of to next to the left foot on the initial position.", "Repeat with the right leg for the recommended amount of repetitions and then perform with the left leg."]}, "Sled_Drag_-_Harness": {"m": ["quadriceps"], "s": ["To begin, load the sled with the desired weight and attach the pulling strap. You can pull with handles, use a harness, or attach the pulling strap to a weight belt.", "Whether pulling forwards or backwards, lean in the direction of travel and progress by extending through the hips and knees."]}, "Dumbbell_Bicep_Curl": {"m": ["biceps"], "s": ["Stand up straight with a dumbbell in each hand at arm's length. Keep your elbows close to your torso and rotate the palms of your hands until they are facing forward. This will be your starting position.", "Now, keeping the upper arms stationary, exhale and curl the weights while contracting your biceps. Continue to raise the weights until your biceps are fully contracted and the dumbbells are at shoulder level. Hold the contracted position for a brief pause as you squeeze your biceps.", "Then, inhale and slowly begin to lower the dumbbells back to the starting position.", "Repeat for the recommended amount of repetitions."]}, "Pushups": {"m": ["chest"], "s": ["Lie on the floor face down and place your hands about 36 inches apart while holding your torso up at arms length.", "Next, lower yourself downward until your chest almost touches the floor as you inhale.", "Now breathe out and press your upper body back up to the starting position while squeezing your chest.", "After a brief pause at the top contracted position, you can begin to lower yourself downward again for as many repetitions as needed."]}, "Leg_Extensions": {"m": ["quadriceps"], "s": ["For this exercise you will need to use a leg extension machine. First choose your weight and sit on the machine with your legs under the pad (feet pointed forward) and the hands holding the side bars. This will be your starting position. Tip: You will need to adjust the pad so that it falls on top of your lower leg (just above your feet). Also, make sure that your legs form a 90-degree angle between the lower and upper leg. If the angle is less than 90-degrees then that means the knee is over the toes which in turn creates undue stress at the knee joint. If the machine is designed that way, either look for another machine or just make sure that when you start executing the exercise you stop going down once you hit the 90-degree angle.", "Using your quadriceps, extend your legs to the maximum as you exhale. Ensure that the rest of the body remains stationary on the seat. Pause a second on the contracted position.", "Slowly lower the weight back to the original position as you inhale, ensuring that you do not go past the 90-degree angle limit.", "Repeat for the recommended amount of times."]}};
+const EXDATA = {"ball_curl": {"m": ["hamstrings"], "s": ["Begin on the floor laying on your back with your feet on top of the ball.", "Position the ball so that when your legs are extended your ankles are on top of the ball. This will be your starting position.", "Raise your hips off of the ground, keeping your weight on the shoulder blades and your feet.", "Flex the knees, pulling the ball as close to you as you can, contracting the hamstrings.", "After a brief pause, return to the starting position."]}, "bench": {"m": ["chest"], "s": ["Lie back on a flat bench. Using a medium width grip (a grip that creates a 90-degree angle in the middle of the movement between the forearms and the upper arms), lift the bar from the rack and hold it straight over you with your arms locked. This will be your starting position.", "From the starting position, breathe in and begin coming down slowly until the bar touches your middle chest.", "After a brief pause, push the bar back to the starting position as you breathe out. Focus on pushing the bar using your chest muscles. Lock your arms and squeeze your chest in the contracted position at the top of the motion, hold for a second and then start coming down slowly again. Tip: Ideally, lowering the weight should take about twice as long as raising it.", "Repeat the movement for the prescribed amount of repetitions.", "When you are done, place the bar back in the rack."]}, "db_bench": {"m": ["chest"], "s": ["Lie down on a flat bench with a dumbbell in each hand resting on top of your thighs. The palms of your hands will be facing each other.", "Then, using your thighs to help raise the dumbbells up, lift the dumbbells one at a time so that you can hold them in front of you at shoulder width.", "Once at shoulder width, rotate your wrists forward so that the palms of your hands are facing away from you. The dumbbells should be just to the sides of your chest, with your upper arm and forearm creating a 90 degree angle. Be sure to maintain full control of the dumbbells at all times. This will be your starting position.", "Then, as you breathe out, use your chest to push the dumbbells up. Lock your arms at the top of the lift and squeeze your chest, hold for a second and then begin coming down slowly. Tip: Ideally, lowering the weight should take about twice as long as raising it.", "Repeat the movement for the prescribed amount of repetitions of your training program."]}, "row": {"m": ["middle back"], "s": ["For this exercise you will need access to a low pulley row machine with a V-bar. Note: The V-bar will enable you to have a neutral grip where the palms of your hands face each other. To get into the starting position, first sit down on the machine and place your feet on the front platform or crossbar provided making sure that your knees are slightly bent and not locked.", "Lean over as you keep the natural alignment of your back and grab the V-bar handles.", "With your arms extended pull back until your torso is at a 90-degree angle from your legs. Your back should be slightly arched and your chest should be sticking out. You should be feeling a nice stretch on your lats as you hold the bar in front of you. This is the starting position of the exercise.", "Keeping the torso stationary, pull the handles back towards your torso while keeping the arms close to it until you touch the abdominals. Breathe out as you perform that movement. At that point you should be squeezing your back muscles hard. Hold that contraction for a second and slowly go back to the original position while breathing in.", "Repeat for the recommended amount of repetitions."]}, "rdl": {"m": ["hamstrings"], "s": ["Put a barbell in front of you on the ground and grab it using a pronated (palms facing down) grip that a little wider than shoulder width. Tip: Depending on the weight used, you may need wrist wraps to perform the exercise and also a raised platform in order to allow for better range of motion.", "Bend the knees slightly and keep the shins vertical, hips back and back straight. This will be your starting position.", "Keeping your back and arms completely straight at all times, use your hips to lift the bar as you exhale. Tip: The movement should not be fast but steady and under control.", "Once you are standing completely straight up, lower the bar by pushing the hips back, only slightly bending the knees, unlike when squatting. Tip: Take a deep breath at the start of the movement and keep your chest up. Hold your breath as you lower and exhale as you complete the movement.", "Repeat for the recommended amount of repetitions."]}, "ohp": {"m": ["shoulders"], "s": ["Start by placing a barbell that is about chest high on a squat rack. Once you have selected the weights, grab the barbell using a pronated (palms facing forward) grip. Make sure to grip the bar wider than shoulder width apart from each other.", "Slightly bend the knees and place the barbell on your collar bone. Lift the barbell up keeping it lying on your chest. Take a step back and position your feet shoulder width apart from each other.", "Once you pick up the barbell with the correct grip length, lift the bar up over your head by locking your arms. Hold at about shoulder level and slightly in front of your head. This is your starting position.", "Lower the bar down to the collarbone slowly as you inhale.", "Lift the bar back up to the starting position as you exhale.", "Repeat for the recommended amount of repetitions."]}, "pulldown": {"m": ["lats"], "s": ["Sit down on a pull-down machine with a wide bar attached to the top pulley. Make sure that you adjust the knee pad of the machine to fit your height. These pads will prevent your body from being raised by the resistance attached to the bar.", "Grab the bar with the palms facing forward using the prescribed grip. Note on grips: For a wide grip, your hands need to be spaced out at a distance wider than shoulder width. For a medium grip, your hands need to be spaced out at a distance equal to your shoulder width and for a close grip at a distance smaller than your shoulder width.", "As you have both arms extended in front of you holding the bar at the chosen grip width, bring your torso back around 30 degrees or so while creating a curvature on your lower back and sticking your chest out. This is your starting position.", "As you breathe out, bring the bar down until it touches your upper chest by drawing the shoulders and the upper arms down and back. Tip: Concentrate on squeezing the back muscles once you reach the full contracted position. The upper torso should remain stationary and only the arms should move. The forearms should do no other work except for holding the bar; therefore do not try to pull down the bar using the forearms.", "After a second at the contracted position squeezing your shoulder blades together, slowly raise the bar back to the starting position when your arms are fully extended and the lats are fully stretched. Inhale during this portion of the movement.", "Repeat this motion for the prescribed amount of repetitions."]}, "pullup": {"m": ["lats"], "s": ["Grab the pull-up bar with the palms facing forward using the prescribed grip. Note on grips: For a wide grip, your hands need to be spaced out at a distance wider than your shoulder width. For a medium grip, your hands need to be spaced out at a distance equal to your shoulder width and for a close grip at a distance smaller than your shoulder width.", "As you have both arms extended in front of you holding the bar at the chosen grip width, bring your torso back around 30 degrees or so while creating a curvature on your lower back and sticking your chest out. This is your starting position.", "Pull your torso up until the bar touches your upper chest by drawing the shoulders and the upper arms down and back. Exhale as you perform this portion of the movement. Tip: Concentrate on squeezing the back muscles once you reach the full contracted position. The upper torso should remain stationary as it moves through space and only the arms should move. The forearms should do no other work other than hold the bar.", "After a second on the contracted position, start to inhale and slowly lower your torso back to the starting position when your arms are fully extended and the lats are fully stretched.", "Repeat this motion for the prescribed amount of repetitions.", "Can't do the reps yet: loop a resistance band over the bar and put a knee or foot in it. A thicker band gives more help."]}, "hip_thrust": {"m": ["glutes"], "s": ["Begin seated on the ground with a bench directly behind you. Have a loaded barbell over your legs. Using a fat bar or having a pad on the bar can greatly reduce the discomfort caused by this exercise.", "Roll the bar so that it is directly above your hips, and lean back against the bench so that your shoulder blades are near the top of it.", "Begin the movement by driving through your feet, extending your hips vertically through the bar. Your weight should be supported by your shoulder blades and your feet. Extend as far as possible, then reverse the motion to return to the starting position."]}, "monster": {"m": ["glutes (side)", "hip abductors"], "s": ["Loop a mini-band just above the knees. Feet hip-width apart so the band is already tight. (Band around the ankles is the harder version.)", "Bend the hips and knees a little — a quarter squat at most, never deeper. Hands on hips, chest up.", "Step sideways with the lead foot about shoulder-width, toes pointing forward. Bring the trailing foot in only far enough to keep tension — the feet never touch.", "Keep the knees pushed out over the toes the whole time; don't let them cave in.", "Take the prescribed number of steps one way, then the same number back. That's one set. The picture only shows the stance — you move sideways, not forwards."]}, "box_squat": {"m": ["quadriceps", "glutes"], "s": ["Set a box or bench behind you high enough that your knees stop at about 70–80° when seated — noticeably higher than the parallel box in the picture. Raise it with plates or a folded mat if needed.", "Bar across the upper back, shoulder blades squeezed, step back out of the rack. Feet shoulder-width, toes slightly out.", "Brace, push the hips back and down, knees tracking over the toes. Lower under control (about 2 s) until you sit on the box.", "Pause one second while staying tight — don't relax onto the box, and never bounce off it.", "Drive through the whole foot to stand, chest leading. If the knee goes above 3/10 pain, raise the box another notch."]}, "goblet_box": {"m": ["quadriceps", "glutes"], "s": ["Set a box or bench behind you at the box-squat height (knee about 70–80° when seated). The picture shows the barbell version — you hold one dumbbell instead.", "Hold a dumbbell vertically against your chest, both hands cupping the top plate, elbows pointing down.", "Feet shoulder-width, toes slightly out. Sit back and down for a slow count of 3, torso upright, knees over the toes.", "Touch the box lightly — don't sit down fully or rock back.", "Stand up in about 1 s, squeezing the glutes at the top. Keep the dumbbell against the chest the whole time."]}, "face_pull": {"m": ["rear shoulders", "upper back"], "s": ["Set a cable pulley at about forehead height with a rope attachment. Hold the rope ends with thumbs pointing back toward you.", "Step back until the arms are straight and the weight is lifted off the stack. Stand tall in a slight split stance, ribs down.", "Pull the rope toward your forehead, splitting the ends apart, elbows high and wide — at or above shoulder height.", "Finish with the hands beside the ears, like a double-biceps pose. Squeeze the rear shoulders and upper back for 1 s.", "Return slowly until the arms are straight. Don't lean back to move the weight."]}, "leg_ext_partial": {"m": ["quadriceps"], "s": ["Sit with the knee lined up with the machine's pivot point and the pad on the lower shin, just above the ankle. Hold the handles.", "Set the start position (range limiter) so the knee is bent only about 45°, not 90° as in the picture. If there's no limiter, just never let the weight travel lower than that.", "Straighten the legs in about 1 s and squeeze the quads for 1 s at the top.", "Lower for 2–3 s back to the 45° point and go again. Keep it light; any sharp pain at the kneecap means stop."]}, "step_low": {"m": ["quadriceps", "glutes"], "s": ["Use a 15–20 cm step, such as one aerobic step. The picture shows a barbell on a taller box — you hold dumbbells at your sides on a lower one.", "A dumbbell in each hand, arms straight. Put the whole working foot flat on the step.", "Lean slightly forward and push through the whole foot of the top leg to stand up on the step. The bottom foot only lightly touches — no pushing off the toes.", "Lower yourself slowly (2–3 s) with the top leg until the other heel touches the floor, then go again.", "Do all reps on one leg, then switch. Reps are per leg; weight is per dumbbell."]}, "sled_back": {"m": ["quadriceps"], "s": ["Load the sled and attach straps or a rope with handles. Face the sled holding the handles, arms straight.", "Lean back slightly into a shallow quarter squat.", "Walk backward with short, quick steps, pushing through the front of the foot and straightening each knee. The knee barely bends under load, so it's easy on worn knees.", "Count every step (both feet). One set is the prescribed number of steps. Keep the back flat and the arms long."]}, "pushup": {"m": ["chest", "triceps", "front shoulders"], "s": ["Hands on the floor slightly wider than shoulder-width, fingers forward. Body in one straight line from head to heels — squeeze the glutes and brace the stomach.", "Lower under control until the chest is about a fist above the floor, elbows about 45° from the body (not flared straight out).", "Press back up to straight arms, hips staying in line — no sagging or piking.", "Easier: hands on a bench. Harder: a 2 s pause at the bottom, then feet on a low box."]}};
 
+/* Fields:
+   sets, lo–hi reps · inc = kg added when every set hits hi · round = smallest jump (2 for dumbbells)
+   st = suggested starts [light, medium, heavy] · unit = weight label
+   variants = levels for bodyweight moves (progress to the next when every set hits hi)
+   rest = seconds after the pair; null = first half of a superset, go straight to the partner
+   alt = full replacement exercise; legacy = names it was logged under before v3 */
 const PROGRAM = {
-  /* ~30 min: 2 min bike, then warm-up card, then three supersets.
-     Do the paired exercise during the first one's rest; rest is after the pair.
-     Last set of each exercise: stop 1–2 reps short of failure. */
+  /* ~30 min: 2 min easy bike, warm-up, three supersets.
+     Do A1 then A2 back to back, rest, repeat. Last set of each: stop 1–2 reps short of failure. */
   A: {
     label: "Day A", focus: "Squat & press",
     lifts: [
-      { slot:"W",  key:"a_abd", st:null, bw:true, name:"Monster Walk", id:"Monster_Walk",
-        sets:2, lo:12, hi:20, inc:0, rest:30,
-        note:"Warm-up, after 2 min easy bike. Band above the knees, small squat, step sideways. Reps are steps per direction. Progress with a thicker band." },
-      { slot:"A1", key:"a_box", st:[40,60,80], name:"Box Squat", id:"Box_Squat",
-        sets:3, lo:6, hi:8, inc:5, rest:75,
-        note:"One light ramp set first. Box set so the knee stops around 70–80°. Sit, pause, stand — never bounce. Superset with A2.",
-        alt:{ name:"Goblet Squat", id:"Goblet_Squat", lo:8, hi:12, st:[12,20,30] } },
-      { slot:"A2", key:"b_face", st:[15,22.5,30], name:"Face Pull", id:"Face_Pull",
-        sets:3, lo:12, hi:15, inc:2.5, rest:75,
-        note:"Do it in the squat rest. Rope to the forehead, elbows high." },
-      { slot:"B1", key:"a_bench", st:[40,55,75], name:"Barbell Bench Press", id:"Barbell_Bench_Press_-_Medium_Grip",
-        sets:4, lo:6, hi:10, inc:2.5, rest:45,
-        note:"Superset with B2. Elbows tucked ~45°, moderate grip. Short rest is fine — the row gives the chest a break.",
-        alt:{ name:"Dumbbell Bench Press", id:"Dumbbell_Bench_Press", lo:8, hi:12, st:[14,20,28] } },
-      { slot:"B2", key:"a_row", st:[35,50,65], name:"Seated Cable Row", id:"Seated_Cable_Rows",
-        sets:4, lo:8, hi:12, inc:2.5, rest:45,
-        note:"Pull to the sternum, pause 1 s, control the return." },
-      { slot:"C1", key:"a_goblet", st:[12,20,28], name:"Goblet Box Squat (slow)", id:"Goblet_Squat",
-        sets:3, lo:10, hi:15, inc:2, rest:60,
-        note:"Same box height as A1, or one notch higher. Dumbbell at the chest, torso upright, 3 s down, touch the box lightly, stand. Superset with C2. Leg extension swap: top half of the range only, light weight.",
-        alt:{ name:"Leg Extension (partial)", id:"Leg_Extensions", lo:12, hi:15, st:[15,25,35] } },
-      { slot:"C2", key:"a_curl", st:null, bw:true, name:"Ball Leg Curl", id:"Ball_Leg_Curl",
-        sets:3, lo:10, hi:15, inc:0, rest:60,
-        note:"Heels on the ball, hips up throughout. Once 15 is easy, go one leg at a time." }
+      { slot:"W",  key:"a_abd", name:"Monster Walk (side steps)", img:"Monster_Walk", tx:"monster",
+        sets:2, lo:12, hi:20, inc:0, rest:30, variants:["Light band","Medium band","Heavy band"],
+        note:"Warm-up, after 2 min easy bike. Reps are steps per direction." },
+      { slot:"A1", key:"a_box", name:"Box Squat (high box)", img:"Box_Squat", tx:"box_squat",
+        sets:3, lo:6, hi:8, inc:5, st:[40,60,80], rest:null,
+        note:"One light ramp set first. Box high enough that the knee stops at 70–80°. Sit, pause, stand — never bounce.",
+        imgnote:"Picture shows a parallel box — use a higher one.",
+        alt:{ name:"Goblet Box Squat", img:"Box_Squat", tx:"goblet_box", sets:3, lo:8, hi:12, inc:2, round:2,
+              st:[12,20,30], note:"Same high box. One dumbbell at the chest, 3 s down, touch and stand.",
+              imgnote:"Picture shows the barbell version — hold one dumbbell instead.", legacy:["Goblet Squat"] } },
+      { slot:"A2", key:"b_face", name:"Face Pull", img:"Face_Pull", tx:"face_pull",
+        sets:3, lo:12, hi:15, inc:2.5, st:[15,22.5,30], rest:75,
+        note:"Straight after each squat set, then rest. Rope to the forehead, elbows high." },
+      { slot:"B1", key:"a_bench", name:"Barbell Bench Press", img:"Barbell_Bench_Press_-_Medium_Grip", tx:"bench",
+        sets:4, lo:6, hi:10, inc:2.5, st:[40,55,75], rest:null,
+        note:"Elbows tucked ~45°, moderate grip. The row is the chest's break.",
+        alt:{ name:"Dumbbell Bench Press", img:"Dumbbell_Bench_Press", tx:"db_bench", sets:4, lo:8, hi:12, inc:2, round:2,
+              st:[14,20,28], unit:"kg / hand", note:"Elbows tucked ~45°. Weight is per dumbbell.", legacy:["Dumbbell Bench Press"] } },
+      { slot:"B2", key:"a_row", name:"Seated Cable Row", img:"Seated_Cable_Rows", tx:"row",
+        sets:4, lo:8, hi:12, inc:2.5, st:[35,50,65], rest:45,
+        note:"Pull to the sternum, pause 1 s, control the return. Then rest." },
+      { slot:"C1", key:"a_goblet", name:"Goblet Box Squat (slow)", img:"Box_Squat", tx:"goblet_box",
+        sets:3, lo:10, hi:15, inc:2, round:2, st:[12,20,28], rest:null,
+        note:"Same box as A1, or one notch higher. 3 s down, touch the box lightly, stand.",
+        imgnote:"Picture shows the barbell version — hold one dumbbell instead.",
+        alt:{ name:"Leg Extension (partial)", img:"Leg_Extensions", tx:"leg_ext_partial", sets:3, lo:12, hi:15, inc:2.5,
+              st:[15,25,35], note:"Top half of the range only, light weight.",
+              imgnote:"Picture starts at 90° — start at about 45° instead.", legacy:["Leg Extension (partial)"] } },
+      { slot:"C2", key:"a_curl", name:"Ball Leg Curl", img:"Ball_Leg_Curl", tx:"ball_curl",
+        sets:3, lo:10, hi:15, inc:0, rest:60, variants:["Two legs","Single leg"],
+        note:"Heels on the ball, hips up throughout. Single leg: reps per leg." }
     ]
   },
   B: {
     label: "Day B", focus: "Hinge & pull",
     lifts: [
-      { slot:"W",  key:"a_abd", st:null, bw:true, name:"Monster Walk", id:"Monster_Walk",
-        sets:2, lo:12, hi:20, inc:0, rest:30,
-        note:"Warm-up, after 2 min easy bike. Band above the knees, small squat, step sideways." },
-      { slot:"A1", key:"b_rdl", st:[40,60,80], name:"Romanian Deadlift", id:"Romanian_Deadlift",
-        sets:3, lo:6, hi:8, inc:5, rest:75,
-        note:"One light ramp set first. Knees nearly straight, soft bend only. Bar stays against the legs. Superset with A2." },
-      { slot:"A2", key:"b_stepup", st:[8,12,16], name:"Low Step-Up (15–20 cm)", id:"Dumbbell_Step_Ups",
-        sets:3, lo:8, hi:12, inc:2, rest:75,
-        note:"Reps per leg, weight per hand. Low box only. Drive through the whole foot, lower slowly — no push-off from the bottom leg.",
-        alt:{ name:"Backward Sled Drag", id:"Sled_Drag_-_Harness", lo:20, hi:30, st:[20,40,60] } },
-      { slot:"B1", key:"b_ohp", st:[25,35,45], name:"Standing Military Press", id:"Standing_Military_Press",
-        sets:4, lo:6, hi:10, inc:2.5, rest:45,
-        note:"Superset with B2. Squeeze glutes, don't lean back." },
-      { slot:"B2", key:"b_pull", st:[40,55,70], name:"Wide-Grip Lat Pulldown", id:"Wide-Grip_Lat_Pulldown",
-        sets:4, lo:8, hi:12, inc:2.5, rest:45,
-        note:"Switch to pull-ups once bodyweight is in the mid-90s.",
-        alt:{ name:"Pullups", id:"Pullups", lo:4, hi:10, st:null } },
-      { slot:"C1", key:"b_thrust", st:[40,70,100], name:"Barbell Hip Thrust", id:"Barbell_Hip_Thrust",
-        sets:3, lo:8, hi:12, inc:5, rest:60,
-        note:"Heavy glute loading with no knee flexion under load. Pad the bar, chin tucked. Superset with C2." },
-      { slot:"C2", key:"b_pushup", st:null, bw:true, name:"Push-Up", id:"Pushups",
-        sets:3, lo:8, hi:15, inc:0, rest:60,
-        note:"Second chest + triceps day. Body in one line, chest to a fist above the floor, stop 1–2 reps short of failure. Too hard: hands on a bench. Past 15: feet on a low box or add a pause at the bottom." }
+      { slot:"W",  key:"a_abd", name:"Monster Walk (side steps)", img:"Monster_Walk", tx:"monster",
+        sets:2, lo:12, hi:20, inc:0, rest:30, variants:["Light band","Medium band","Heavy band"],
+        note:"Warm-up, after 2 min easy bike. Reps are steps per direction." },
+      { slot:"A1", key:"b_rdl", name:"Romanian Deadlift", img:"Romanian_Deadlift", tx:"rdl",
+        sets:3, lo:6, hi:8, inc:5, st:[40,60,80], rest:null,
+        note:"One light ramp set first. Knees nearly straight, soft bend only. Bar stays against the legs." },
+      { slot:"A2", key:"b_ohp", name:"Standing Military Press", img:"Standing_Military_Press", tx:"ohp",
+        sets:3, lo:6, hi:10, inc:2.5, st:[25,35,45], rest:75,
+        note:"Straight after each RDL set — the legs and grip rest while you press. Squeeze glutes, don't lean back." },
+      { slot:"B1", key:"b_stepup", name:"Low Step-Up (15–20 cm)", img:"Barbell_Step_Ups", tx:"step_low",
+        sets:3, lo:8, hi:12, inc:2, round:2, st:[8,12,16], unit:"kg / hand", rest:null,
+        note:"Reps per leg. Low step only. Drive through the whole foot, lower slowly — no push-off from the bottom leg.",
+        imgnote:"Picture shows a barbell — hold dumbbells at your sides instead.",
+        alt:{ name:"Backward Sled Drag", img:"Backward_Drag", tx:"sled_back", sets:3, lo:20, hi:30, inc:10,
+              st:[20,40,60], unit:"Sled kg", note:"Reps = steps backward. Short quick steps, straighten each knee.",
+              legacy:["Backward Sled Drag"] } },
+      { slot:"B2", key:"b_pull", name:"Wide-Grip Lat Pulldown", img:"Wide-Grip_Lat_Pulldown", tx:"pulldown",
+        sets:3, lo:8, hi:12, inc:2.5, st:[40,55,70], rest:60,
+        note:"Bar to the upper chest, elbows down and back. Try pull-ups once bodyweight is in the mid-90s.",
+        alt:{ name:"Pull-Up", img:"Pullups", tx:"pullup", sets:3, lo:4, hi:10, inc:0,
+              variants:["Thick band","Thin band","Bodyweight"], note:"Band over the bar under a knee or foot if needed.",
+              legacy:["Pullups"] } },
+      { slot:"C1", key:"b_thrust", name:"Barbell Hip Thrust", img:"Barbell_Hip_Thrust", tx:"hip_thrust",
+        sets:3, lo:8, hi:12, inc:5, st:[40,70,100], rest:null,
+        note:"Heavy glute work with no knee bending under load. Pad the bar, chin tucked." },
+      { slot:"C2", key:"b_pushup", name:"Push-Up", img:"Pushups", tx:"pushup",
+        sets:3, lo:8, hi:15, inc:0, rest:60, variants:["Hands on bench","Floor","Floor + 2 s pause","Feet on low box"], vdef:1,
+        note:"Second chest + triceps day. Body in one line, chest to a fist above the floor, stop 1–2 reps short of failure." }
     ]
   }
 };
+const LEVELS = ["Light", "Medium", "Heavy"];
 
 /* ============================================================
    STORAGE
    ============================================================ */
 const KEY = "traininglog:v2";
-let DB = { sessions: [], bodyweight: [], alts: {}, level: 1 };
+let DB = { sessions: [], bodyweight: [], alts: {}, level: 1, draft: { A: {}, B: {} } };
 let storageOK = true;
 let store = "memory";   // "claude" | "local" | "memory"
 
-/* Where we can save depends on how this page was opened.
-   In the Claude artifact viewer, window.storage exists.
-   Opened as a downloaded file, it doesn't — browser storage handles it. */
 function detectStore() {
   try {
     if (window.storage && typeof window.storage.get === "function") return "claude";
@@ -443,12 +467,16 @@ async function loadDB() {
       raw = localStorage.getItem(KEY);
     }
   } catch (e) {
-    raw = null;   // nothing saved yet — first run
+    raw = null;
   }
   if (raw) { try { DB = Object.assign(DB, JSON.parse(raw)); } catch (e) {} }
+  if (!DB.draft || typeof DB.draft !== "object") DB.draft = {};
+  DB.draft.A = DB.draft.A || {};
+  DB.draft.B = DB.draft.B || {};
 }
 
 async function saveDB() {
+  clearTimeout(saveTimer); saveTimer = null;
   const payload = JSON.stringify(DB);
   try {
     if (store === "claude") await window.storage.set(KEY, payload);
@@ -460,6 +488,11 @@ async function saveDB() {
   }
   renderWarn();
 }
+let saveTimer = null;
+function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(saveDB, 400); }
+/* Phone locks / tab switches: write the draft out immediately. */
+document.addEventListener("visibilitychange", () => { if (document.hidden && saveTimer) saveDB(); });
+window.addEventListener("pagehide", () => { if (saveTimer) saveDB(); });
 
 function renderWarn() {
   document.getElementById("storagewarn").innerHTML = storageOK ? "" :
@@ -479,50 +512,78 @@ function exportData() {
    HELPERS
    ============================================================ */
 const $ = id => document.getElementById(id);
-const today = () => new Date().toISOString().slice(0,10);
+/* Local calendar date (not UTC), so a late session lands on the right day. */
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+};
 const fmtDate = d => new Date(d+"T00:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
+/* Accepts "22,5" as well as "22.5" (phones set to comma decimals). */
+const parseKg = s => { const v = parseFloat(String(s || "").replace(",", ".")); return isFinite(v) && v > 0 ? v : 0; };
+const fmtKg = v => String(v);
 
-function liftView(l) {
-  const useAlt = DB.alts[l.key] && l.alt;
-  return useAlt
-    ? { ...l, name: l.alt.name, id: l.alt.id, lo: l.alt.lo, hi: l.alt.hi, st: l.alt.st,
-        bw: l.alt.st === null }
-    : l;
+const BY_KEY = {};
+Object.values(PROGRAM).forEach(d => d.lifts.forEach(l => { BY_KEY[l.key] = l; }));
+
+/* The exercise as currently selected. A swapped-in alternative gets its own
+   history key and its own sets / increment / note, never the original's. */
+function viewOf(raw) {
+  if (raw.alt && DB.alts[raw.key]) {
+    const a = raw.alt;
+    return { slot: raw.slot, rest: raw.rest, base: raw.key, key: raw.key + ":alt", isAlt: true,
+      imgnote: "", inc: 0, round: 2.5, st: null, variants: null, unit: null, ...a };
+  }
+  return { ...raw, base: raw.key, isAlt: false };
+}
+const isBW = l => !!l.variants;
+
+/* Logged entries for this exercise, newest first. Entries saved before
+   alternatives had their own key are told apart by the name they were logged under. */
+function historyOf(v) {
+  const legacy = (BY_KEY[v.base].alt && BY_KEY[v.base].alt.legacy) || [];
+  const out = [];
+  for (let i = DB.sessions.length - 1; i >= 0; i--) {
+    const s = DB.sessions[i];
+    let e = s.entries[v.key];
+    if (!e && v.isAlt) {
+      const old = s.entries[v.base];
+      if (old && legacy.includes(old.name)) e = old;
+    }
+    if (e && !v.isAlt && legacy.includes(e.name)) e = null;
+    if (e && e.reps.some(r => r > 0)) out.push({ ...e, date: s.date });
+  }
+  return out;
 }
 
-/* Starting-weight estimates, set for someone with prior lifting experience. */
 function suggestKg(l) {
   if (!l.st) return null;
-  const raw = l.st[DB.level];
-  return Math.round(raw / 2.5) * 2.5;
+  const step = l.round || 2.5;
+  return Math.round(l.st[DB.level] / step) * step;
 }
-function lastFor(key) {
-  for (let i = DB.sessions.length - 1; i >= 0; i--) {
-    const e = DB.sessions[i].entries[key];
-    if (e && e.reps.some(r => r > 0)) return { ...e, date: DB.sessions[i].date };
-  }
-  return null;
-}
-/* Stalled = this is the 3rd session in a row at this weight with no rep gain. */
-function stalled(key, weight, reps) {
-  const prev = [];
-  for (let i = DB.sessions.length - 1; i >= 0 && prev.length < 2; i--) {
-    const e = DB.sessions[i].entries[key];
-    if (e && e.reps.some(r => r > 0)) prev.push(e);
-  }
+
+/* Stalled = 3rd session in a row at this weight with no rep gain. */
+function stalled(v, weight, reps) {
+  const prev = historyOf(v).slice(0, 2);
   if (prev.length < 2 || prev.some(e => e.weight !== weight)) return false;
   const tot = a => a.filter(r => r > 0).reduce((x, y) => x + y, 0);
   return tot(reps) <= tot(prev[0].reps) && tot(prev[0].reps) <= tot(prev[1].reps);
 }
-function verdictFor(l, weight, reps) {
+
+function verdictFor(l, weight, variant, reps) {
   const filled = reps.filter(r => r > 0);
   if (filled.length < l.sets) return { cls:"", text:"" };
-  if (filled.every(r => r >= l.hi))
-    return { cls:"up", text: l.inc ? `Add ${l.inc} kg next time` : "Add reps next time" };
+  if (filled.every(r => r >= l.hi)) {
+    if (l.inc) return { cls:"up", text:`Add ${l.inc} kg next time` };
+    if (isBW(l)) {
+      const i = l.variants.indexOf(variant);
+      if (i >= 0 && i < l.variants.length - 1) return { cls:"up", text:`Next time: ${l.variants[i+1]}` };
+    }
+    return { cls:"up", text:"Add reps next time" };
+  }
   if (filled.some(r => r < l.lo)) {
-    if (l.inc && stalled(l.key, weight, filled))
+    if (l.inc && stalled(l, weight, filled))
       return { cls:"down", text:"Stalled 3 sessions — drop 10% and build back up" };
-    return { cls:"down", text:"Hold this weight" };
+    return { cls:"down", text: isBW(l) ? "Stay at this level" : "Hold this weight" };
   }
   return { cls:"", text:"Keep climbing" };
 }
@@ -537,75 +598,111 @@ function suggestedDay() {
   return last ? (last.day === "A" ? "B" : "A") : "A";
 }
 
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c])); }
+
 function renderTrain() {
   const day = PROGRAM[currentDay];
+  const draft = DB.draft[currentDay];
   const host = $("exercises");
   host.innerHTML = "";
+  let needLevel = false;
 
-  day.lifts.forEach(raw => {
-    const l = liftView(raw);
-    const last = lastFor(l.key);
+  day.lifts.forEach((raw, idx) => {
+    const l = viewOf(raw);
+    const last = historyOf(l)[0] || null;
     const sugg = suggestKg(l);
-    const card = document.createElement("article");
-    card.className = "card";
-    card.dataset.key = l.key;
+    const d = draft[l.key] || {};
+    if (!last && !isBW(l)) needLevel = true;
 
     const setInputs = Array.from({length: l.sets}, (_, i) =>
-      `<div><input type="number" inputmode="numeric" min="0" max="99"
-         data-rep="${i}" placeholder="${l.lo}–${l.hi}" aria-label="Set ${i+1} reps"></div>`).join("");
-
+      `<div><input type="number" inputmode="numeric" min="0" max="99" data-rep="${i}"
+         value="${esc(d.reps && d.reps[i] != null ? d.reps[i] : "")}"
+         placeholder="${l.lo}–${l.hi}" aria-label="Set ${i+1} reps"></div>`).join("");
     const rungs = Array.from({length: l.sets}, () =>
       `<div class="rung"><i style="width:0"></i></div>`).join("");
 
+    let field;
+    if (isBW(l)) {
+      const cur = d.v != null ? d.v : (last && last.variant && l.variants.includes(last.variant) ? last.variant : l.variants[l.vdef || 0]);
+      field = `<label class="fieldlabel" for="w_${idx}">Level</label>
+        <select id="w_${idx}" data-variant>${l.variants.map(x =>
+          `<option${x === cur ? " selected" : ""}>${esc(x)}</option>`).join("")}</select>`;
+    } else {
+      const wv = d.w != null ? d.w : (last && last.weight ? fmtKg(last.weight) : "");
+      field = `<label class="fieldlabel" for="w_${idx}">${l.unit || "Weight kg"}</label>
+        <input type="text" inputmode="decimal" autocomplete="off" id="w_${idx}" data-weight
+               placeholder="${sugg != null ? sugg : ""}" value="${esc(wv)}">`;
+    }
+
+    const next = day.lifts[idx + 1];
+    const restBtn = l.rest === null && next
+      ? `<button class="restbtn" data-next="${idx + 1}">Next: ${next.slot} ↓</button>`
+      : `<button class="restbtn" data-rest-lift="${l.rest}">Rest ${fmtRest(l.rest)}</button>`;
+
+    const lastText = last
+      ? `Last (${fmtDate(last.date)}): <b>${last.weight ? fmtKg(last.weight) + " kg" : esc(last.variant || "bodyweight")}</b> · <b>${last.reps.filter(r => r > 0).join(" / ")}</b>`
+      : (isBW(l) ? `No history yet — start at <b>${esc(l.variants[l.vdef || 0])}</b>.`
+                 : `No history. Suggested start <b>${sugg} kg</b> — treat set one as a test.`);
+
+    const card = document.createElement("article");
+    card.className = "card";
+    card.dataset.idx = idx;
     card.innerHTML = `
       <div class="card-head">
         <div class="slot">${raw.slot}</div>
-        <h3 class="name">${l.name}</h3>
+        <h3 class="name">${esc(l.name)}</h3>
         <div class="target">${l.sets}×${l.lo}–${l.hi}</div>
       </div>
-      <button class="demo" data-ex="${l.id}" data-name="${l.name}" aria-label="${l.name} — how to perform">
-        <img src="${REF}${l.id}/0.jpg" alt="${l.name} demonstration" loading="lazy">
+      <button class="demo" data-ex="${l.img}" data-idx="${idx}" aria-label="${esc(l.name)} — how to perform">
+        <img src="${REF}${l.img}/0.jpg" alt="${esc(l.name)} demonstration" loading="lazy">
         <span class="phase">Start</span>
         <span class="zoom">Tap for steps</span>
       </button>
       <div class="card-sub">
-        <p class="note">${l.note}</p>
-        ${raw.alt ? `<button class="minilink" data-swap="${raw.key}">Swap → ${DB.alts[raw.key] ? raw.name : raw.alt.name}</button>` : ""}
+        ${l.imgnote ? `<p class="note imgnote">${esc(l.imgnote)}</p>` : ""}
+        <p class="note">${esc(l.note)}</p>
+        ${raw.alt ? `<button class="minilink" data-swap="${raw.key}">Swap → ${esc(DB.alts[raw.key] ? raw.name : raw.alt.name)}</button>` : ""}
       </div>
-      <p class="lastline">${last
-        ? `Last (${fmtDate(last.date)}): <b>${last.weight ? last.weight + " kg" : "bodyweight"}</b> · <b>${last.reps.join(" / ")}</b>`
-        : (l.bw ? "Bodyweight — no history yet." : `No history. Suggested start <b>${sugg} kg</b> — treat set one as a test.`)}</p>
+      <p class="lastline">${lastText}</p>
       <div class="entry">
-        <div>
-          <label class="fieldlabel" for="w_${l.key}">Weight</label>
-          <input type="number" inputmode="decimal" step="0.5" min="0" id="w_${l.key}" data-weight
-                 placeholder="${l.bw ? "—" : sugg}" ${l.bw ? "disabled" : ""}
-                 value="${last && last.weight ? last.weight : ""}">
-        </div>
+        <div>${field}</div>
         <div>
           <span class="fieldlabel">Reps by set</span>
           <div class="setrow">${setInputs}</div>
         </div>
       </div>
-      <div class="ladder">${rungs}<span class="verdict"></span>
-        <button class="restbtn" data-rest-lift="${l.rest}">Rest ${fmtRest(l.rest)}</button>
-      </div>
-    `;
+      <div class="ladder">${rungs}<span class="verdict"></span>${restBtn}</div>`;
     host.appendChild(card);
   });
 
-  host.querySelectorAll("input").forEach(inp => inp.addEventListener("input", onEntryChange));
-  host.querySelectorAll(".demo").forEach(d => d.addEventListener("click", () => openLightbox(d.dataset.ex, d.dataset.name)));
+  $("levelrow").innerHTML = needLevel
+    ? `<span>Suggested starts:</span>${LEVELS.map((n, i) =>
+        `<button data-level="${i}" aria-pressed="${DB.level === i}">${n}</button>`).join("")}`
+    : "";
+  $("levelrow").querySelectorAll("[data-level]").forEach(b => b.addEventListener("click", () => {
+    DB.level = parseInt(b.dataset.level); saveDB(); renderTrain();
+  }));
+
+  host.querySelectorAll("input, select").forEach(inp => {
+    inp.addEventListener("input", onEntryChange);
+    inp.addEventListener("change", onEntryChange);
+  });
+  host.querySelectorAll(".demo").forEach(d => d.addEventListener("click", () =>
+    openLightbox(viewOf(PROGRAM[currentDay].lifts[d.dataset.idx]))));
   host.querySelectorAll("[data-rest-lift]").forEach(b => b.addEventListener("click", () => {
     document.querySelectorAll(".restbtn").forEach(x => x.classList.remove("running"));
     b.classList.add("running");
     startTimer(parseInt(b.dataset.restLift));
   }));
-  startLoops();
+  host.querySelectorAll("[data-next]").forEach(b => b.addEventListener("click", () => {
+    const c = host.querySelector(`.card[data-idx="${b.dataset.next}"]`);
+    if (c) c.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
   host.querySelectorAll("[data-swap]").forEach(b => b.addEventListener("click", () => {
     DB.alts[b.dataset.swap] = !DB.alts[b.dataset.swap];
-    saveDB(); renderTrain();
+    saveDB(); renderTrain();   // entries live in DB.draft, so nothing typed is lost
   }));
+  startLoops();
 
   $("btn-A").setAttribute("aria-pressed", currentDay === "A");
   $("btn-B").setAttribute("aria-pressed", currentDay === "B");
@@ -616,25 +713,39 @@ function renderTrain() {
   updateAll();
 }
 
-function onEntryChange(e) { updateCard(e.target.closest(".card")); updateFinish(); }
-
 function readCard(card) {
-  const l = liftView(PROGRAM[currentDay].lifts.find(x => x.key === card.dataset.key));
+  const l = viewOf(PROGRAM[currentDay].lifts[card.dataset.idx]);
   const w = card.querySelector("[data-weight]");
-  const weight = w && w.value ? parseFloat(w.value) : 0;
+  const vs = card.querySelector("[data-variant]");
+  const weight = w ? parseKg(w.value) : 0;
+  const variant = vs ? vs.value : null;
   const reps = [...card.querySelectorAll("[data-rep]")].map(i => parseInt(i.value) || 0);
-  return { l, weight, reps };
+  return { l, weight, variant, reps };
+}
+
+function onEntryChange(e) {
+  const card = e.target.closest(".card");
+  const l = viewOf(PROGRAM[currentDay].lifts[card.dataset.idx]);
+  const w = card.querySelector("[data-weight]");
+  const vs = card.querySelector("[data-variant]");
+  DB.draft[currentDay][l.key] = {
+    w: w ? w.value : undefined,
+    v: vs ? vs.value : undefined,
+    reps: [...card.querySelectorAll("[data-rep]")].map(i => i.value)
+  };
+  saveSoon();
+  updateCard(card); updateFinish();
 }
 
 function updateCard(card) {
-  const { l, weight, reps } = readCard(card);
+  const { l, weight, variant, reps } = readCard(card);
   card.querySelectorAll(".rung").forEach((rung, i) => {
     const r = reps[i] || 0;
     const pct = r <= 0 ? 0 : Math.max(12, Math.min(100, ((r - l.lo + 1) / (l.hi - l.lo + 1)) * 100));
     rung.querySelector("i").style.width = pct + "%";
     rung.classList.toggle("top", r >= l.hi);
   });
-  const v = verdictFor(l, weight, reps);
+  const v = verdictFor(l, weight, variant, reps);
   const el = card.querySelector(".verdict");
   el.textContent = v.text;
   el.className = "verdict " + v.cls;
@@ -654,10 +765,15 @@ function updateFinish() {
 async function finishSession() {
   const entries = {};
   document.querySelectorAll(".card").forEach(card => {
-    const { l, weight, reps } = readCard(card);
-    if (reps.some(r => r > 0)) entries[l.key] = { name: l.name, weight, reps };
+    const { l, weight, variant, reps } = readCard(card);
+    if (reps.some(r => r > 0)) {
+      const e = { name: l.name, weight, reps };
+      if (variant) e.variant = variant;
+      entries[l.key] = e;
+    }
   });
   DB.sessions.push({ date: today(), day: currentDay, entries });
+  DB.draft[currentDay] = {};
   await saveDB();
   currentDay = suggestedDay();
   renderTrain();
@@ -679,7 +795,7 @@ function renderHistory() {
   }
   host.innerHTML = DB.sessions.map((s, idx) => ({ s, idx })).reverse().map(({ s, idx }) => {
     const lines = Object.values(s.entries).map(e =>
-      `${e.name} — ${e.weight ? e.weight + " kg" : "bw"} × ${e.reps.filter(r=>r>0).join(" / ")}`).join("\n");
+      `${esc(e.name)} — ${e.weight ? fmtKg(e.weight) + " kg" : esc(e.variant || "bw")} × ${e.reps.filter(r=>r>0).join(" / ")}`).join("\n");
     return `<div class="logrow">
       <div class="top">${PROGRAM[s.day].label}
         <span>${fmtDate(s.date)}</span>
@@ -740,6 +856,8 @@ function renderWeight() {
       <button class="rowdel" data-delbw="${idx}">Delete</button></div></div>`;
   }).join("");
   $("bwlist").querySelectorAll("[data-delbw]").forEach(b => b.addEventListener("click", async () => {
+    const e = DB.bodyweight[b.dataset.delbw];
+    if (!confirm(`Delete the ${e.kg.toFixed(1)} kg weigh-in from ${fmtDate(e.date)}?`)) return;
     DB.bodyweight.splice(b.dataset.delbw, 1);
     await saveDB();
     renderWeight();
@@ -747,16 +865,14 @@ function renderWeight() {
 }
 
 /* ============================================================
-   DEMO LOOP  —  the dataset gives two frames per exercise,
-   start and finish. Alternating them shows the movement.
+   DEMO LOOP  —  two frames per exercise, start and finish
    ============================================================ */
 let loopId = null, frame = 0;
 const stillPreferred = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function startLoops() {
-  document.querySelectorAll(".demo img").forEach(img => {
-    const id = img.closest(".demo").dataset.ex;
-    [0,1].forEach(n => { const p = new Image(); p.src = REF + id + "/" + n + ".jpg"; });
+  document.querySelectorAll(".demo").forEach(d => {
+    [0,1].forEach(n => { const p = new Image(); p.src = REF + d.dataset.ex + "/" + n + ".jpg"; });
   });
   if (stillPreferred || loopId) return;
   loopId = setInterval(() => {
@@ -771,9 +887,10 @@ function startLoops() {
 /* ============================================================
    LIGHTBOX  —  both frames, full size, plus the coaching steps
    ============================================================ */
-function openLightbox(id, name) {
-  const data = EXDATA[id];
+function openLightbox(l) {
+  const data = EXDATA[l.tx];
   if (!data) return;
+  const name = esc(l.name);
   $("lb-inner").innerHTML = `
     <div class="lb-head">
       <div>
@@ -782,13 +899,14 @@ function openLightbox(id, name) {
       </div>
       <button class="lb-close" id="lb-close">Close</button>
     </div>
+    ${l.imgnote ? `<p class="lb-imgnote">${esc(l.imgnote)}</p>` : ""}
     <div class="frames">
-      <figure><img src="${REF}${id}/0.jpg" alt="${name}, starting position"><figcaption>Start</figcaption></figure>
-      <figure><img src="${REF}${id}/1.jpg" alt="${name}, finishing position"><figcaption>Finish</figcaption></figure>
+      <figure><img src="${REF}${l.img}/0.jpg" alt="${name}, starting position"><figcaption>Start</figcaption></figure>
+      <figure><img src="${REF}${l.img}/1.jpg" alt="${name}, finishing position"><figcaption>Finish</figcaption></figure>
     </div>
-    <ol>${data.s.map(step => `<li>${step}</li>`).join("")}</ol>
+    <ol>${data.s.map(step => `<li>${esc(step)}</li>`).join("")}</ol>
     <a class="minilink yt" target="_blank" rel="noopener"
-       href="https://www.youtube.com/results?search_query=${encodeURIComponent(name + " proper form technique")}">
+       href="https://www.youtube.com/results?search_query=${encodeURIComponent(l.name + " proper form technique")}">
        Search video demos</a>`;
   $("lightbox").hidden = false;
   document.body.style.overflow = "hidden";
@@ -862,13 +980,14 @@ $("btn-A").onclick = () => { currentDay = "A"; renderTrain(); };
 $("btn-B").onclick = () => { currentDay = "B"; renderTrain(); };
 $("finish").onclick = finishSession;
 $("clearform").onclick = () => {
-  document.querySelectorAll("[data-rep]").forEach(i => i.value = "");
-  updateAll();
+  if (Object.keys(DB.draft[currentDay]).length && !confirm("Clear everything entered for this day?")) return;
+  DB.draft[currentDay] = {};
+  saveDB(); renderTrain();
 };
 $("export").onclick = exportData;
 $("clearall").onclick = clearAllHistory;
 $("bwadd").onclick = async () => {
-  const v = parseFloat($("bwinput").value);
+  const v = parseKg($("bwinput").value);
   if (!v || v < 30 || v > 300) return;
   DB.bodyweight.push({ date: today(), kg: v });
   DB.bodyweight.sort((a,b) => a.date.localeCompare(b.date));
@@ -884,9 +1003,11 @@ function renderMeta() {
 
 (async function boot() {
   await loadDB();
-  currentDay = suggestedDay();
+  const hasDraft = d => Object.values(DB.draft[d]).some(e => e.reps && e.reps.some(r => r));
+  currentDay = hasDraft("A") ? "A" : hasDraft("B") ? "B" : suggestedDay();
   renderWarn();
   renderMeta();
   renderTrain();
 })();
 </script>
+
